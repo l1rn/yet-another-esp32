@@ -1,0 +1,4 @@
+#ifndef WIFI_COMPONENT_H
+#define WIFI_COMPONENT_H
+
+#endif // WIFI_COMPONENT
