@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.5)
-set(EXTRA_COMPONENT_DIRS ${EXTRA_COMPONENT_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/wifi_component ${CMAKE_CURRENT_SOURCE_DIR}/uart_component)
+set(COMPONENTS main system_info http_server uart_component wifi_component ota)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-idf_build_set_property(MINIMAL_BUILD ON)
 project(another-esp-project)

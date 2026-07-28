@@ -3,5 +3,7 @@ idf_component_register(
 	REQUIRES
 		wifi_component
 		uart_component
+		http_server
+		ota
 	)
 
