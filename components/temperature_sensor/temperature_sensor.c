@@ -23,8 +23,8 @@ static const char *TAG = "TEMPERATURE SENSOR";
 
 float calculate_temperature(int raw_adc){
 	if (raw_adc <= 50 || raw_adc >= 4000) return -999.0f; 
-	float rNtc = R_FIXED * ((float)raw_adc / (4095.0f - (float)raw_adc));
 
+	float rNtc = R_FIXED * ((float)raw_adc / (4095.0f - (float)raw_adc));
     	float steinhart;
     	steinhart = rNtc / R0;
     	steinhart = logf(steinhart);

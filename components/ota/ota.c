@@ -76,6 +76,4 @@ esp_err_t register_ota_uri(httpd_handle_t server){
 		return ESP_OK;
 	}
 	return ESP_FAIL;
-
-	
 }

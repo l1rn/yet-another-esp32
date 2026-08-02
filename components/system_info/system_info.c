@@ -42,11 +42,11 @@ int get_system_info(char heap[], int size){
 }
 
 static void get_wifi_strength(int8_t rssi, char *result){
-	if(rssi <= -50)	strcpy(result, "Excellent (█████)"); 
-	if(rssi <= -60)	strcpy(result, "Good (████ )");
-	if(rssi <= -75) strcpy(result, "Fair (███  )");
-	if(rssi <= -85) strcpy(result, "Poor (██   )");
-	if(rssi <= -90) strcpy(result, "Very poor (█    )");
+	if(rssi <= -50)	strcpy(result, "Excellent "); 
+	if(rssi <= -60)	strcpy(result, "Good ");
+	if(rssi <= -75) strcpy(result, "Fair");
+	if(rssi <= -85) strcpy(result, "Poor");
+	if(rssi <= -90) strcpy(result, "Very poor");
 	else result = "Unknown";
 }
 
