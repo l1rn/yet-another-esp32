@@ -18,17 +18,21 @@ void create_main_loop(){
 #endif // CONFIG_ESP_ENABLE_WEB_LOGS
 	init_temperature_config();
 	start_softap_sta();
-	if(wifi_is_connected()){
-		httpd_handle_t s = start_server();
-		register_ota_uri(s);
-	}
+	
 
 #if CONFIG_ESP_ENABLE_UART
 	xTaskCreate(tcp_server_task, "tcp_server", 4096, NULL, 5, NULL);
 	xTaskCreate(uart_to_socket_task, "uart_to_tcp", 3072, NULL, 5, NULL);
 #endif
-
+	bool is_connected = false;
 	while(1){
+		if(wifi_is_connected() && !is_connected){
+			httpd_handle_t s = start_server();
+			register_ota_uri(s);
+			is_connected = true;
+		} else {
+			is_connected = false;
+		}	
 		LOG_TO_WEB("[SENSOR] Real temperature: %d\n", get_temperature());
 		vTaskDelay(pdMS_TO_TICKS(2500));
 	}
