@@ -2,6 +2,7 @@
 #define ESPNOW_OTA_SERVER_H
 
 #include "esp_err.h"
+#include "esp_wifi.h"
 
 #define OTA_CHUNK_SIZE 1024
 
@@ -24,7 +25,6 @@ typedef struct __attribute__((packed)) {
 	u8 payload[OTA_CHUNK_SIZE];
 } ota_packet_t;
 
-esp_err_t espnow_ota_server_init(const u8 *receiver_mac);
-esp_err_t espnow_ota_server_start_transfer(const u8 *firmware_bin, size_t bin_size);
+esp_err_t espnow_ota_client_init(const u8 *receiver_mac);
 
 #endif // ESPNOW_OTA_SERVER_H

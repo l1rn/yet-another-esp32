@@ -6,6 +6,7 @@
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
 typedef int64_t _i64;
+typedef uint8_t u8;
 static const char *TAG = "OTA";
 
 _i64 last_send_time = 0;
@@ -77,3 +78,4 @@ esp_err_t register_ota_uri(httpd_handle_t server){
 	}
 	return ESP_FAIL;
 }
+

@@ -3,7 +3,7 @@
 
 #include "uart_component.h" 
 #include "ota.h"
-#include "espnow_ota_server.h"
+#include "espnow_ota_client.h"
 #include "http_server.h"
 #include "ring_buffer.h"
 #include "temperature_sensor.h"
@@ -28,13 +28,15 @@ void create_main_loop(){
 	xTaskCreate(tcp_server_task, "tcp_server", 4096, NULL, 5, NULL);
 	xTaskCreate(uart_to_socket_task, "uart_to_tcp", 3072, NULL, 5, NULL);
 #endif
+	espnow_ota_client_init(main_mac);
 	bool is_connected = false;
 	while(1){
-		if(wifi_is_connected() && !is_connected){
-			httpd_handle_t s = start_server();
-			register_ota_uri(s);
-			espnow_ota_server_init(main_mac);
-			is_connected = true;
+		if(wifi_is_connected()){
+			if(!is_connected){
+				httpd_handle_t s = start_server();
+				register_ota_uri(s);
+				is_connected = true;
+			}
 		} else {
 			is_connected = false;
 		}	
