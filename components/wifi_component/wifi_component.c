@@ -21,6 +21,7 @@
 #define ESP_WIFI_AP_PASSWORD CONFIG_ESP_WIFI_AP_PASSWORD
 #define ESP_WIFI_AP_CHANNEL CONFIG_ESP_WIFI_AP_CHANNEL
 #define ESP_MAX_STA_CONN_AP CONFIG_ESP_MAX_STA_CONN_AP
+#define ESP_WIFI_AP_ENABLED CONFIG_ESP_WIFI_AP_ENABLED
 
 // STA CONFIG
 #define ESP_STA_SSID CONFIG_ESP_STA_SSID
@@ -87,11 +88,14 @@ static void wifi_event_handler(
 		ESP_LOGI(TAG_STA, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
 		s_retry_num = 0;
 		xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-	} else if(event_base == IP_EVENT && event_id == IP_EVENT_ASSIGNED_IP_TO_CLIENT){
+	} 
+#if ESP_WIFI_AP_ENABLED
+	else if(event_base == IP_EVENT && event_id == IP_EVENT_ASSIGNED_IP_TO_CLIENT){
 		const ip_event_assigned_ip_to_client_t *e = (const ip_event_assigned_ip_to_client_t *)event_data;
 		ESP_LOGI(TAG_AP, "Assigned IP to client: " IPSTR ", MAC=" MACSTR ", hostname='%s'", 
 		IP2STR(&e->ip), MAC2STR(e->mac), e->hostname);
 	}
+#endif // ESP_WIFI_AP_ENABLED
 }
 
 esp_netif_t *wifi_init_sta(void){
@@ -167,16 +171,24 @@ void start_softap_sta(void){
 	ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
 				IP_EVENT_STA_GOT_IP,
 				&wifi_event_handler, NULL, NULL));
+#if ESP_WIFI_AP_ENABLED
 	ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
 				IP_EVENT_ASSIGNED_IP_TO_CLIENT,
 				&wifi_event_handler, NULL, NULL));
+#endif // ESP_WIFI_AP_ENABLED
 	
 	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+#if ESP_WIFI_AP_ENABLED
 	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
+#else 
+	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+#endif // ESP_WIFI_AP_ENABLED
 
-//	ESP_LOGI(TAG_AP, "ESP_WIFI_MODE_AP");
-//	esp_netif_t *esp_netif_ap = wifi_init_softap();
+#if ESP_WIFI_AP_ENABLED
+	ESP_LOGI(TAG_AP, "ESP_WIFI_MODE_AP");
+	esp_netif_t *esp_netif_ap = wifi_init_softap();
+#endif // ESP_WIFI_AP_ENABLED
 
 	ESP_LOGI(TAG_STA, "ESP_WIFI_MODE_STA");
 	esp_netif_t *esp_netif_sta = wifi_init_sta();
@@ -192,7 +204,9 @@ void start_softap_sta(void){
 	if(bits & WIFI_CONNECTED_BIT){
 		ESP_LOGI(TAG_STA, "connected to ap SSID:%s password:%s",
 				ESP_STA_SSID, ESP_STA_PASSWORD);
-		//softap_set_dns_addr(esp_netif_ap, esp_netif_sta);
+#if ESP_WIFI_AP_ENABLED
+		softap_set_dns_addr(esp_netif_ap, esp_netif_sta);
+#endif // ESP_WIFI_AP_ENABLED
 	} else if(bits & WIFI_FAIL_BIT){
 		ESP_LOGI(TAG_STA, "failed to connect to SSID:%s password:%s", ESP_STA_SSID, ESP_STA_PASSWORD);
 	} else {
@@ -202,7 +216,20 @@ void start_softap_sta(void){
 
 	esp_netif_set_default_netif(esp_netif_sta);
 
-//	if(esp_netif_napt_enable(esp_netif_ap) != ESP_OK){
-//		ESP_LOGE(TAG_STA, "NAPT not enabled on the netif: %p", esp_netif_ap);
-//	}
+#if ESP_WIFI_AP_ENABLED
+	if(esp_netif_napt_enable(esp_netif_ap) != ESP_OK){
+		ESP_LOGE(TAG_STA, "NAPT not enabled on the netif: %p", esp_netif_ap);
+	}
+#endif // ESP_WIFI_AP_ENABLED
+}
+
+bool wifi_is_connected(void){
+	wifi_ap_record_t ap;
+	return esp_wifi_sta_get_ap_info(&ap) == ESP_OK;
+}
+
+void wifi_cleanup(void){
+	esp_wifi_disconnect();
+	esp_wifi_stop();
+	esp_wifi_deinit();
 }

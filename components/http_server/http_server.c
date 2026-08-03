@@ -13,8 +13,10 @@
 static const char *TAG = "HTTP_SERVER";
 static TaskHandle_t sse_task_handle = NULL;
 static cbuf_handle_t g_cbuf_handle = NULL;
+static bool web_logs = true;
 
 void LOG_TO_WEB(const char *format, ...){
+#if CONFIG_ESP_ENABLE_WEB_LOGS
 	if(!g_cbuf_handle) return;
 
 	char temp_buf[CONFIG_MAX_LINE_LEN];
@@ -27,6 +29,9 @@ void LOG_TO_WEB(const char *format, ...){
 	if(sse_task_handle != NULL){
 		xTaskNotifyGive(sse_task_handle);
 	}
+#else
+	web_logs = false;
+#endif
 }
 
 static esp_err_t root_get_handler(httpd_req_t *req) {
@@ -46,6 +51,11 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
 }
 
 static esp_err_t sse_events_handler(httpd_req_t *req){
+	if(web_logs == false){
+		httpd_resp_set_type(req, "text/html");
+		httpd_resp_send(req, "ESP_ENABLE_WEB_LOGS disabled, to start track logs use <b>idf.py menuconfig</b> to change 'Application Configuration' from no to yes", HTTPD_RESP_USE_STRLEN);
+		return ESP_OK;
+	}
 	httpd_resp_set_type(req, "text/event-stream");		
 	httpd_resp_set_hdr(req, "Cache-Control", "no-cache");
 	httpd_resp_set_hdr(req, "Connection", "keep-alive");
