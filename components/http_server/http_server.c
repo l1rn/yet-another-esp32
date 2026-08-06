@@ -16,7 +16,6 @@ static cbuf_handle_t g_cbuf_handle = NULL;
 static bool web_logs = true;
 
 void LOG_TO_WEB(const char *format, ...){
-#if CONFIG_ESP_ENABLE_WEB_LOGS
 	if(!g_cbuf_handle) return;
 
 	char temp_buf[CONFIG_MAX_LINE_LEN];
@@ -29,9 +28,7 @@ void LOG_TO_WEB(const char *format, ...){
 	if(sse_task_handle != NULL){
 		xTaskNotifyGive(sse_task_handle);
 	}
-#else
 	web_logs = false;
-#endif
 }
 
 static esp_err_t root_get_handler(httpd_req_t *req) {
@@ -121,7 +118,7 @@ httpd_handle_t start_server(void){
 		httpd_register_uri_handler(server, &root);
 		httpd_register_uri_handler(server, &events);
 
-		LOG_TO_WEB("[%s] Server started on port: %d", TAG, config.server_port);
+		ESP_LOGI(TAG, "Server started on port: %d", config.server_port);
 		return server;
 	}
 

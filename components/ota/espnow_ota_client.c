@@ -5,12 +5,16 @@
 #include "esp_log.h"
 #include "esp_rom_crc.h"
 #include "esp_now.h"
+#include "esp_ota_ops.h"
 #include <stdio.h>
 #include <string.h>
 
 static const char *TAG = "ESP_NOW_OTA_CLIENT";
 
-static QueueHandle_t ack_queue = NULL;
+static esp_ota_handle_t ota_handle = 0;
+static const esp_partition_t *update_partition = NULL;
+static int64_t last_chunk_time = 0;
+static bool ota_started = false;
 
 typedef struct {
 	u32 acked_chunk;
@@ -24,6 +28,10 @@ static void send_ack(const u8 *dest_mac, u32 chunk_idx){
 	};
 
 	if(!esp_now_is_peer_exist(dest_mac)){
+		u8 primary_ch = CONFIG_ESP_PEER_CHANNEL;
+		wifi_second_chan_t second_ch;
+		esp_wifi_get_channel(&primary_ch, &second_ch);
+
 		esp_now_peer_info_t peer = {};
 		memcpy(peer.peer_addr, dest_mac, 6);
 		peer.channel = CONFIG_ESP_PEER_CHANNEL;
@@ -43,13 +51,54 @@ static void espnow_recv_cb(const u8 *mac_addr, const u8 *data, int len){
 	u8 *src_mac = (u8 *) mac_addr;
 	int rssi = 0
 #endif
-	if(len >= sizeof(ota_packet_t) - OTA_CHUNK_SIZE){
-		ota_packet_t *pkt = (ota_packet_t *)data;
-		if(pkt->type == OTA_CMD_ACK){
-			ESP_LOGI(TAG, "Chunk %lu/%lu received (Length: %d, Signal RSSI: %d dBm)",
-                        pkt->chunk_idx, pkt->total_chunks, pkt->data_len, rssi);
+	if (len < sizeof(ota_packet_t) - OTA_CHUNK_SIZE) return;   
 
-			send_ack(src_mac, pkt->chunk_idx);
+	ota_packet_t *pkt = (ota_packet_t *)data;
+
+	if (pkt->type == OTA_CMD_DATA) {
+		uint32_t calc_crc = esp_rom_crc32_le(0, pkt->payload, pkt->data_len);
+		if (calc_crc != pkt->crc32) {
+		    ESP_LOGE(TAG, "CRC mismatch chunk %lu, discarding", pkt->chunk_idx);
+		    return;
+		}
+
+		if (!ota_started) {
+			update_partition = esp_ota_get_next_update_partition(NULL);
+			if (update_partition == NULL) {
+				ESP_LOGE(TAG, "No OTA update partition found!");
+				return;
+			}
+			if (esp_ota_begin(update_partition, OTA_WITH_SEQUENTIAL_WRITES, &ota_handle) != ESP_OK) {
+				ESP_LOGE(TAG, "OTA begin failed");
+				return;
+			}
+			ota_started = true;
+			ESP_LOGI(TAG, "OTA started, writing to partition %s", update_partition->label);
+		}
+
+		esp_err_t err = esp_ota_write(ota_handle, pkt->payload, pkt->data_len);
+
+		if (err != ESP_OK) {
+			ESP_LOGE(TAG, "OTA write error: %s", esp_err_to_name(err));
+			esp_ota_abort(ota_handle);
+			ota_started = false;
+			return;
+		}
+
+		send_ack(src_mac, pkt->chunk_idx);
+		ESP_LOGI(TAG, "Chunk %lu/%lu (%d bytes, rssi:%d dBm)",
+		pkt->chunk_idx, pkt->total_chunks, pkt->data_len, rssi);
+
+		if (pkt->chunk_idx == pkt->total_chunks - 1) {
+			if (esp_ota_end(ota_handle) == ESP_OK && esp_ota_set_boot_partition(update_partition) == ESP_OK) {
+				ESP_LOGI(TAG, "OTA success! Rebooting...");
+				vTaskDelay(pdMS_TO_TICKS(1000));
+				esp_restart();
+			} 
+			else {
+				ESP_LOGE(TAG, "OTA end failed");
+			}
+			ota_started = false;
 		}
 	}
 }

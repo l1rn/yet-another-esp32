@@ -18,9 +18,7 @@ void create_main_loop(){
 #if CONFIG_ESP_ENABLE_UART
 	init_uart();
 #endif // CONFIG_ESP_ENABLE_UART
-#if CONFIG_ESP_ENABLE_WEB_LOGS
 	circular_buf_init();
-#endif // CONFIG_ESP_ENABLE_WEB_LOGS
 	init_temperature_config();
 	start_softap_sta();
 
@@ -29,17 +27,9 @@ void create_main_loop(){
 	xTaskCreate(uart_to_socket_task, "uart_to_tcp", 3072, NULL, 5, NULL);
 #endif
 	espnow_ota_client_init(main_mac);
-	bool is_connected = false;
+	httpd_handle_t s = start_server();
+	register_ota_uri(s);
 	while(1){
-		if(wifi_is_connected()){
-			if(!is_connected){
-				httpd_handle_t s = start_server();
-				register_ota_uri(s);
-				is_connected = true;
-			}
-		} else {
-			is_connected = false;
-		}	
 		LOG_TO_WEB("[SENSOR] Real temperature: %d\n", get_temperature());
 		vTaskDelay(pdMS_TO_TICKS(2500));
 	}
